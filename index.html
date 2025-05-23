@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Label Cropper & Generator (Advanced Version)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+
+<style>
+  body { font-family: sans-serif; padding: 1rem; background: #fff; color: #000; transition: background 0.3s, color 0.3s; }
+  .dark body { background: #121212; color: #e0e0e0; }
+  .controls {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+  .controls button, .controls select, .controls input[type="text"] {
+    padding: 10px;
+    font-size: 1rem;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    background: #f9f9f9;
+    transition: background 0.3s, color 0.3s, border 0.3s;
+}
+  .controls input[type="file"] {
+    padding: 6px;
+    font-size: 0.9rem;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    background: #f9f9f9;
+    transition: background 0.3s, color 0.3s, border 0.3s;
+}
+    padding: 10px;
+    font-size: 1rem;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    background: #f9f9f9;
+    transition: background 0.3s, color 0.3s, border 0.3s;
+  }
+  .dark .controls button, .dark .controls select, .dark .controls input {
+    background: #333;
+    border: 1px solid #666;
+    color: #eee;
+  }
+  .controls input[type="text"]#layoutInput {
+    width: 70px;
+  }
+  .preview {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    border: 2px dashed #bbb;
+    padding: 10px;
+    min-height: 150px;
+    transition: border 0.3s;
+  }
+  .dark .preview {
+    border-color: #666;
+  }
+  .preview-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .preview img {
+    height: 100px;
+    border: 1px solid #aaa;
+  }
+  button.small {
+    font-size: 0.8rem;
+    padding: 2px 5px;
+    margin-top: 2px;
+  }
+  .primary { background-color: #4caf50; color: white; border: 1px solid #4caf50; transition: transform 0.3s, box-shadow 0.3s; }
+  .primary:hover { background-color: #43a047; transform: scale(1.1); box-shadow: 0 4px 12px rgba(76, 175, 80, 0.6); }
+  .small[title="Download"]:hover { transform: scale(1.1); box-shadow: 0 4px 12px rgba(33, 150, 243, 0.6); }
+  .rainbow-text {
+    font-size: 1.8rem;
+    font-weight: bold;
+    background: linear-gradient(270deg, #ff0000, #ff7300, #fffb00, #48ff00, #00ffd5, #002bff, #7a00ff, #ff00d4, #ff0000);
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: rainbow 8s linear infinite alternate;
+    text-align: center;
+  }
+  @keyframes rainbow {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 100% 50%; }
+  }
+  .footer, .header {
+    text-align: center;
+    font-size: 0.9rem;
+    margin: 10px 0;
+    color: inherit;
+  }
+  button.small.active {
+    background-color: #4caf50;
+    color: white;
+    border: 1px solid #4caf50;
+  }
+  .dark button.small.active {
+    background-color: #81c784;
+    color: black;
+    border: 1px solid #81c784;
+  }
+</style>
+
+</head>
+
+<body class="dark">
+<div style="margin-bottom:10px;">
+    <strong>Generate Count:</strong> <span id="generateCounter">0</span> |
+    <strong>Download Count:</strong> <span id="downloadCounter">0</span> |
+    <strong>Print Count:</strong> <span id="printCounter">0</span>
+</div>
+
+<div class="header">Made by Rajinder Singh (GamesPlanet) @2025</div>
+<h2 class="rainbow-text">Label Cropper & Generator (Advanced Version)</h2>
+
+<div class="controls">
+  <input type="file" id="fileInput" multiple accept="application/pdf,image/*">
+  <span title="Layout">🔢</span>
+  <input type="text" id="layoutInput" value="2x4" placeholder="2x4" pattern="^[1-9][0-9]*x[1-9][0-9]*$" required>
+  <button id="toggleAutoGen" onclick="toggleAutoGenerate()">⚙️ Auto-Generate: OFF</button>
+  <button class="small primary" onclick="incrementCount('generateCount'); generatePDF()" title="Generate PDF">🚀 Generate</button>
+  <button class="small" data-group="orientation" id="btnPortrait" onclick="setOrientation('portrait')" title="Portrait 📄">📄</button>
+<button class="small" data-group="orientation" id="btnLandscape" onclick="setOrientation('landscape')" title="Landscape 🖼️">🖼️</button>
+
+  <label for="pageSizeSelect">Page Size:</label>
+  <select id="pageSizeSelect">
+    <option value="A4" selected>A4 (Default)</option>
+    <option value="Letter">Letter</option>
+    <option value="Legal">Legal</option>
+    <option value="A5">A5</option>
+  </select>
+
+  <button class="small" data-group="colorMode" id="btnColor" onclick="setColorMode('color')" title="Color 🌈">🌈</button>
+<button class="small" data-group="colorMode" id="btnBW" onclick="setColorMode('bw')" title="Black & White ⚫⚪">⚫⚪</button>
+
+  
+  <button onclick="incrementCount('downloadCount'); if (document.getElementById('layoutInput').value.trim()) generatePDF(); downloadPDF()" title="Download" title="Download" class="small" style="font-weight:bold;">⬇️ Download</button>
+  <button onclick="incrementCount('printCount'); if (document.getElementById('layoutInput').value.trim()) generatePDF(); printPDFDirect()" title="Print">🖨️ <span style="display:none">Print</span></button>
+  <button id="toggleStamp" onclick="toggleStamp()">🏷️ <span style="display:none">Auto-Stamp: OFF</span></button>
+  <button onclick="toggleTheme()" title="Switch Theme">🌙 <span style="display:none">Switch Theme</span></button>
+</div>
+
+<div id="preview" class="preview"></div>
+<div id="pdfPreview"></div>
+<div class="footer">Made by Rajinder Singh (GamesPlanet) @2025</div>
+
+<script>
+/* Full JavaScript */
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+let filesData = [], generatedBlob = null, croppedImages = [], fitFlags = [], autoStampEnabled = false;
+
+const pageSizes = { A4: {width:595.28,height:841.89}, Letter:{width:612,height:792}, Legal:{width:612,height:1008}, A5:{width:419.53,height:595.28} };
+
+function toggleStamp() {
+  autoStampEnabled = !autoStampEnabled;
+  document.getElementById('toggleStamp').innerText = 'Auto-Stamp: ' + (autoStampEnabled ? 'ON' : 'OFF');
+}
+
+function toggleTheme() {
+  document.documentElement.classList.toggle('dark');
+}
+
+function rotateImage(index) {
+  const original = croppedImages[index];
+  const rotated = document.createElement("canvas");
+  rotated.width = original.height; rotated.height = original.width;
+  const ctx = rotated.getContext("2d");
+  ctx.translate(rotated.width/2, rotated.height/2); ctx.rotate(Math.PI/2);
+  ctx.drawImage(original, -original.width/2, -original.height/2);
+  croppedImages[index] = rotated;
+  showPreview(); saveSettings();
+}
+
+function toggleFitImage(index) { fitFlags[index] = !fitFlags[index]; showPreview(); saveSettings(); }
+
+function showPreview() {
+  const preview = document.getElementById("preview");
+  preview.innerHTML = '';
+  croppedImages.forEach((canvas, index) => {
+    const div = document.createElement("div");
+    div.className = "preview-item";
+    const img = document.createElement("img");
+    img.src = canvas.toDataURL();
+    const rotateBtn = document.createElement("button");
+    rotateBtn.innerText = "Rotate"; rotateBtn.className = "small";
+    rotateBtn.onclick = () => rotateImage(index);
+    const fitBtn = document.createElement("button");
+    fitBtn.innerText = fitFlags[index] ? "Unfit" : "Fit"; fitBtn.className = "small";
+    fitBtn.onclick = () => toggleFitImage(index);
+    div.appendChild(img); div.appendChild(rotateBtn); div.appendChild(fitBtn); preview.appendChild(div);
+  });
+}
+
+async function trimCanvas(canvas) {
+  const ctx = canvas.getContext("2d"), {width, height} = canvas, imgData = ctx.getImageData(0,0,width,height), data = imgData.data;
+  let top=height, bottom=0, left=width, right=0;
+  for (let y=0; y<height; y++) for (let x=0; x<width; x++) {
+    const i=(y*width+x)*4;
+    if (data[i]<250||data[i+1]<250||data[i+2]<250) {
+      if (x<left) left=x; if (x>right) right=x; if (y<top) top=y; if (y>bottom) bottom=y;
+    }
+  }
+  const trimmedWidth=right-left+1, trimmedHeight=bottom-top+1;
+  const trimmed = document.createElement("canvas");
+  trimmed.width=trimmedWidth; trimmed.height=trimmedHeight;
+  trimmed.getContext("2d").drawImage(canvas,left,top,trimmedWidth,trimmedHeight,0,0,trimmedWidth,trimmedHeight);
+  return trimmed;
+}
+
+async function extractImagesFromFiles() {
+  const images = [];
+  for (const file of filesData) {
+    if (file.type==='application/pdf') {
+      const buffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({data:buffer}).promise;
+      for (let i=1; i<=pdf.numPages; i++) {
+        const page = await pdf.getPage(i), viewport = page.getViewport({scale:3});
+        const canvas = document.createElement("canvas");
+        canvas.width = viewport.width; canvas.height = viewport.height;
+        await page.render({canvasContext:canvas.getContext("2d"), viewport}).promise;
+        const trimmed = await trimCanvas(canvas); images.push(trimmed);
+      }
+    } else if (file.type.startsWith("image/")) {
+      const img = new Image();
+      img.src=URL.createObjectURL(file);
+      await img.decode();
+      const canvas = document.createElement("canvas");
+      canvas.width=img.width; canvas.height=img.height;
+      canvas.getContext("2d").drawImage(img,0,0);
+      const trimmed = await trimCanvas(canvas); images.push(trimmed);
+    }
+  }
+  return images;
+}
+
+function convertCanvasToGrayscale(originalCanvas) {
+  const canvas = document.createElement("canvas");
+  canvas.width=originalCanvas.width; canvas.height=originalCanvas.height;
+  const ctx=canvas.getContext("2d");
+  ctx.drawImage(originalCanvas,0,0);
+  const imgData=ctx.getImageData(0,0,canvas.width,canvas.height), data=imgData.data;
+  for (let i=0;i<data.length;i+=4) {
+    const avg=(data[i]+data[i+1]+data[i+2])/3;
+    data[i]=data[i+1]=data[i+2]=avg;
+  }
+  ctx.putImageData(imgData,0,0);
+  return canvas;
+}
+
+async function generatePDF() {
+  const layout=document.getElementById('layoutInput').value.trim();
+  if (!layout.match(/^[1-9][0-9]*x[1-9][0-9]*$/)) { alert("Please enter layout like 2x4."); return; }
+  const [cols, rows]=layout.split('x').map(Number);
+  const orientation = localStorage.getItem('orientation') || 'portrait';
+  const pageSize=document.getElementById('pageSizeSelect').value;
+  const colorMode = localStorage.getItem('colorMode') || 'color';
+  const size=pageSizes[pageSize];
+  const PAGE_WIDTH=orientation==="portrait"?size.width:size.height;
+  const PAGE_HEIGHT=orientation==="portrait"?size.height:size.width;
+  if (croppedImages.length===0) {
+    croppedImages=await extractImagesFromFiles();
+    fitFlags.length=croppedImages.length;
+    fitFlags.fill(false);
+  }
+  showPreview();
+  const { PDFDocument, rgb }=PDFLib;
+  const pdfDoc=await PDFDocument.create();
+  const labelWidth=PAGE_WIDTH/cols, labelHeight=PAGE_HEIGHT/rows;
+  for (let i=0;i<croppedImages.length;i+=cols*rows) {
+    const page=pdfDoc.addPage([PAGE_WIDTH,PAGE_HEIGHT]);
+    const chunk=croppedImages.slice(i,i+cols*rows);
+    for (let j=0;j<chunk.length;j++) {
+      let canvas=chunk[j];
+      if (colorMode==='bw') { canvas=convertCanvasToGrayscale(canvas); }
+      const imageBytes=await canvasToPNGBytes(canvas);
+      const embeddedImage=await pdfDoc.embedPng(imageBytes);
+      let x=(j%cols)*labelWidth;
+      let y=PAGE_HEIGHT-labelHeight*(Math.floor(j/cols)+1);
+      let width=fitFlags[i+j]?labelWidth:Math.min(labelWidth,labelHeight*canvas.width/canvas.height);
+      let height=fitFlags[i+j]?labelHeight:Math.min(labelHeight,labelWidth*canvas.height/canvas.width);
+      x+=(labelWidth-width)/2; y+=(labelHeight-height)/2;
+      page.drawImage(embeddedImage,{x,y,width,height});
+      if (autoStampEnabled) { const now=new Date(), dateStr=now.toLocaleDateString(), timeStr=now.toLocaleTimeString(); const labelNo=`Label #${i+j+1}`; page.drawText(`${dateStr} ${timeStr}`,{x:x+5,y:5,size:8,color:rgb(0.5,0.5,0.5)});
+      }
+    }
+  }
+  const pdfBytes=await pdfDoc.save();
+  generatedBlob=new Blob([pdfBytes],{type:'application/pdf'});
+  renderPDFPreview(generatedBlob);
+  saveSettings();
+}
+
+async function canvasToPNGBytes(canvas) {
+  return await new Promise(resolve => {
+    canvas.toBlob(blob => { const reader=new FileReader();
+    reader.onloadend=()=>resolve(reader.result);
+    reader.readAsArrayBuffer(blob); },'image/png',1.0);
+  });
+}
+
+async function renderPDFPreview(blob) {
+  const url=URL.createObjectURL(blob);
+  const pdf=await pdfjsLib.getDocument(url).promise;
+  const pdfPreview=document.getElementById('pdfPreview');
+  pdfPreview.innerHTML='';
+  for (let i=1;i<=pdf.numPages;i++) {
+    const page=await pdf.getPage(i);
+    const viewport=page.getViewport({scale:0.5});
+    const canvas=document.createElement('canvas');
+    canvas.width=viewport.width; canvas.height=viewport.height;
+    await page.render({canvasContext:canvas.getContext('2d'),viewport}).promise;
+    pdfPreview.appendChild(canvas);
+  }
+}
+
+
+document.getElementById('fileInput').addEventListener('change', e => {
+  if (document.getElementById('layoutInput').value.trim()) generatePDF();
+  filesData = filesData.concat(Array.from(e.target.files));
+  e.target.value = '';
+  // Removed clearing previews to allow add-on files
+});
+
+function downloadPDF() {
+  if (!generatedBlob) return alert("Please generate PDF first!");
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(generatedBlob);
+  a.download="labels.pdf";
+  a.click();
+}
+
+function printPDFDirect() {
+  if (!generatedBlob) return alert("Please generate PDF first!");
+  const url=URL.createObjectURL(generatedBlob);
+  const win=window.open(url);
+  win.onload=()=>win.print();
+}
+
+function saveSettings() {
+  localStorage.setItem('layout',document.getElementById('layoutInput').value);
+  localStorage.setItem('orientation',document.getElementById('orientationSelect').value);
+  localStorage.setItem('fitFlags',JSON.stringify(fitFlags));
+}
+
+function loadSettings() {
+  const layout=localStorage.getItem('layout');
+  const orientation=localStorage.getItem('orientation');
+  if (layout) document.getElementById('layoutInput').value=layout;
+  if (orientation) document.getElementById('orientationSelect').value=orientation;
+  const savedFits=localStorage.getItem('fitFlags');
+  if (savedFits) fitFlags=JSON.parse(savedFits);
+}
+loadSettings();
+</script>
+
+
+<script>
+if (!localStorage.getItem('generateCount')) localStorage.setItem('generateCount', 0);
+if (!localStorage.getItem('downloadCount')) localStorage.setItem('downloadCount', 0);
+if (!localStorage.getItem('printCount')) localStorage.setItem('printCount', 0);
+if (!localStorage.getItem('colorMode')) localStorage.setItem('colorMode', 'color');
+if (!localStorage.getItem('orientation')) localStorage.setItem('orientation', 'portrait');
+
+function incrementCount(type) {
+    let count = parseInt(localStorage.getItem(type)) || 0;
+    localStorage.setItem(type, count + 1);
+    updateCountDisplay();
+}
+function updateCountDisplay() {
+    document.getElementById('generateCounter').innerText = localStorage.getItem('generateCount');
+    document.getElementById('downloadCounter').innerText = localStorage.getItem('downloadCount');
+    document.getElementById('printCounter').innerText = localStorage.getItem('printCount');
+}
+function highlightSelectedButton(groupName, selectedId) {
+    document.querySelectorAll(`[data-group="${groupName}"]`).forEach(btn => btn.classList.remove('active'));
+    document.getElementById(selectedId).classList.add('active');
+}
+function setColorMode(mode) {
+    highlightSelectedButton('colorMode', mode === 'color' ? 'btnColor' : 'btnBW');
+    localStorage.setItem('colorMode', mode);
+}
+function setOrientation(mode) {
+    highlightSelectedButton('orientation', mode === 'portrait' ? 'btnPortrait' : 'btnLandscape');
+    localStorage.setItem('orientation', mode);
+}
+window.onload = function() {
+    autoGenerateEnabled = localStorage.getItem('autoGenerate') === 'true';
+    document.getElementById('toggleAutoGen').innerText = '⚙️ Auto-Generate: ' + (autoGenerateEnabled ? 'ON' : 'OFF');
+    document.documentElement.classList.add('dark');
+    if (document.getElementById('btnTheme')) document.getElementById('btnTheme').classList.add('active');
+    updateCountDisplay();
+    setColorMode(localStorage.getItem('colorMode') || 'color');
+    setOrientation(localStorage.getItem('orientation') || 'portrait');
+};
+</script>
+
+
+<script>
+setInterval(() => {
+  if (autoGenerateEnabled && document.getElementById('layoutInput').value.trim()) {
+    incrementCount('generateCount');
+    generatePDF();
+  }
+}, 2000);
+
+let autoGenerateEnabled = localStorage.getItem('autoGenerate') === 'true';
+function toggleAutoGenerate() {
+  autoGenerateEnabled = !autoGenerateEnabled;
+  localStorage.setItem('autoGenerate', autoGenerateEnabled);
+  document.getElementById('toggleAutoGen').innerText = '⚙️ Auto-Generate: ' + (autoGenerateEnabled ? 'ON' : 'OFF');
+}
+
+</script>
+</body>
+
+</html>
